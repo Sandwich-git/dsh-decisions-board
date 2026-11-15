@@ -25,6 +25,9 @@
 dsh plugin add dsh-decisions-board
 ```
 
+> 首发版本（0.4.0）目前处于 npm 的 staged 审核中。用
+> `npm view dsh-decisions-board versions --json` 自查：看不到 `0.4.0` 就先走方式二。
+
 **方式二：本地 tgz**
 
 ```powershell
@@ -145,7 +148,7 @@ install_local_workbench({ path: '<tgz 绝对路径>', replace: false })
 ## 开发
 
 ```powershell
-node --test tests/model.test.mjs tests/bundle.test.mjs tests/host.test.mjs tests/client.test.mjs  # 58 条
+node --test tests/model.test.mjs tests/bundle.test.mjs tests/host.test.mjs tests/client.test.mjs  # 66 条
 node tools/build-client.mjs   # 改完 src/ 必跑，产物 lib/client.js 勿手改
 node tools/serve.mjs --file examples/decisions.sample.json   # 本地预览页，端口随机
 ```
@@ -167,7 +170,7 @@ node tools/serve.mjs --file examples/decisions.sample.json   # 本地预览页�
 | `examples/` | 三条示例数据，配合预览页使用 |
 | `docs/VERIFICATION.md` | 验证记录 |
 | `docs/R1-slot-research.md` | 会话标题行 slot 的取证结论 |
-| `tests/` | `node --test`：模型 / 产物 / 宿主 / 客户端，共 58 条 |
+| `tests/` | `node --test`：模型 / 产物 / 宿主 / 客户端，共 66 条 |
 
 ## 许可证
 
