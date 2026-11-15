@@ -13,9 +13,9 @@
 | 项 | 值 |
 | --- | --- |
 | 远端 | <https://github.com/Sandwich-git/dsh-decisions-board> |
-| 分支 / HEAD | `main` · `329b47e`（**单条提交**） |
+| 分支 / HEAD | `main` · `1c1ee88`（3 个提交，全部干净） |
 | 入库文件 | **35 个**（`.research/` 36.5 MB、`*.tgz`、`.dev/` 均在 `.gitignore`） |
-| 历史 | **仓库已删除并重建**：旧历史里含内项目路径与内部文档引用，且 force push 清不掉已 push 的对象（见下），故直接重建 |
+| 历史 | **仓库已删除并重建**：旧历史里含内部路径与文档引用，且 force push 清不掉已 push 的对象（见下），故直接重建 |
 | 内容扫描 | 项目名 / 内部文档章节引用 / 本机绝对路径 / 用户名 —— 工作树与远端均为 **0**（用 GitHub API 读，绕过 raw CDN 缓存） |
 | 测试 | 58/58 绿（`node --test`，零依赖，不需要 install） |
 | 图标 URL | `assets/icon-180.png` → 200（19201 B） |
