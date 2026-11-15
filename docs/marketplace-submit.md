@@ -8,47 +8,43 @@
 **投稿本身只要一个文件（5 行 YAML）**，但有三件事必须先做好：仓库公开、仓库**建满 1 天**、加 `dsh-plugin` topic。
 前两件不是能「顺手」完成的 —— 时间必须真实流逝。
 
-## 零、仓库已推送并完成一次内容清洗（2026-11-15 21:40 +08:00）
+## 零、仓库已重建并推送（2026-11-15 21:47 +08:00）
 
 | 项 | 值 |
 | --- | --- |
 | 远端 | <https://github.com/Sandwich-git/dsh-decisions-board> |
-| 分支 / HEAD | `main` · `8bd56d5` |
+| 分支 / HEAD | `main` · `329b47e`（**单条提交**） |
 | 入库文件 | **35 个**（`.research/` 36.5 MB、`*.tgz`、`.dev/` 均在 `.gitignore`） |
-| 历史 | **已重写为单条提交**（旧历史里含不该公开的项目路径与内部文档引用，force push 覆盖） |
+| 历史 | **仓库已删除并重建**：旧历史里含内项目路径与内部文档引用，且 force push 清不掉已 push 的对象（见下），故直接重建 |
 | 内容扫描 | 项目名 / 内部文档章节引用 / 本机绝对路径 / 用户名 —— 工作树与远端均为 **0**（用 GitHub API 读，绕过 raw CDN 缓存） |
 | 测试 | 58/58 绿（`node --test`，零依赖，不需要 install） |
 | 图标 URL | `assets/icon-180.png` → 200（19201 B） |
 | topics | **空，待加 `dsh-plugin`** |
-| 建仓时间 | `2026-11-15T13:23:33Z` ⇒ **满 24 小时 = 2026-11-16 21:23:33 +08:00** |
+| 建仓时间 | `2026-11-15T13:39:39Z` ⇒ **满 24 小时 = 2026-11-16 21:39:39 +08:00** |
 
 ### 还差两件，都不是写代码能解决的
 
 1. **加 `dsh-plugin` topic**（CI 硬要求；本机浏览器未登录 GitHub，无法代劳）
    → 打开 <https://github.com/Sandwich-git/dsh-decisions-board>，右侧 About 齿轮 → Topics 填 `dsh-plugin`；
-2. **等到 2026-11-16 21:24 (+08:00) 之后**再提 PR（CI 自动查 `created_at`，不足 1 天直接红）。
+2. **等到 2026-11-16 21:40 (+08:00) 之后**再提 PR（CI 自动查 `created_at`，不足 1 天直接红）。
 
 两件都满足后，按 §四 提 PR —— 只加 `marketplace/Sandwich-git__dsh-decisions-board.yml` 这一个文件。
 
-### ⚠️ 历史清理的边界（实测，2026-11-15 21:5x）
+### ✅ 教训：`git push --force` 清不掉已 push 的对象
 
-仓库历史已压成**单条提交**，当前分支上不含任何内部信息。但实测发现：
+最初的处理是「把历史压成单条 + force push」。实测发现**不够**：
 
 | 旧提交 SHA | `GET /repos/…/commits/<sha>` |
 | --- | --- |
 | `ff43074` / `c47e3c7` / `8bd56d5` / `25c45bf` / `e1525fa` / `da67c24` | **全部 200，仍可访问** |
 
-**原因**：`git push --force` 只移动分支指针；GitHub 不会主动 GC 已被 push 过的对象，
-而且仓库的 Activity 页会把 force-push 前后的 SHA 列出来 —— 也就是说旧 SHA 不需要你记住。
+**原因**：force push 只移动分支指针；GitHub 不会主动 GC 已被 push 过的对象，
+而且仓库 Activity 页会把 force-push 前后的 SHA 列出来 —— 旧 SHA 不需要有人记住。
 
-**⇒ 要让旧对象彻底消失，只有两条路**：
+**处理**：删除仓库、同名重建、重新 push。重建后旧 SHA 返回 `409`（仓库曾为空）——
+对象库随旧仓库一起消失，这是**唯一**能让旧提交真正不可达的常规手段。
 
-1. **删除仓库再重建**（推荐；仓库没有 fork/star，重建成本几乎为零）——
-   代价是仓库创建时间重置，24 小时门槛重新计时（本仓库相差不到 20 分钟）；
-2. 联系 GitHub Support 请求清理不可达对象（几天，不现实）。
-
-重建后本地无需改动：remote 已指向同名仓库，`git push -u origin main` 一条命令即可。
-
+> 若将来还要清理历史，顺序是：**先清洗工作树 → 删库重建 → 单次 push**，不要指望 force push。
 > ⚠️ 一个实操提醒：`raw.githubusercontent.com` 有 CDN 缓存，刚 push 完立刻拉可能还是旧内容。
 > 核对远端内容请用 GitHub API（`api.github.com/repos/.../contents/<path>`）或直接 clone。
 ## 一、必须先做的三件事
