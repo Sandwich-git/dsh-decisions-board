@@ -149,6 +149,123 @@ export function normalizeDoc(raw) {
   return { doc: { version, session, items }, problems };
 }
 
+/**
+ * 把一段决策文本归一化，用于「是不是同一件事」的比对。
+ *
+ * 为什么需要它：模型两次描述同一件事时，措辞几乎从不完全一致 ——
+ * 多一个空格、全角冒号、句末加了句号，精确比对就漏了，于是看板上出现两条一样的决策。
+ * ⇒ 去空白、去标点、统一全半角与大小写之后再比。
+ */
+export function normalizeDecisionText(value) {
+  if (typeof value !== 'string') return '';
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s\u3000]+/gu, '')
+    .replace(/[，。、；：！？,.．;:!?\-—_/\\|"'“”‘’（）()\[\]【】<>《》~`@#$%^&*+=]/gu, '');
+}
+
+/** 选项集合的指纹：只看 key，排序后拼接。没有选项时返回空串。 */
+function optionKeySet(options) {
+  if (!Array.isArray(options) || options.length === 0) return '';
+  return options
+    .map((option) => String(option?.key ?? '').trim())
+    .filter((key) => key !== '')
+    .sort()
+    .join(',');
+}
+
+/** 一条决策的比对指纹：标题 + 问题（都已归一化）。 */
+export function decisionKey(input) {
+  return normalizeDecisionText(input?.title) + '\u0000' + normalizeDecisionText(input?.question);
+}
+
+/**
+ * 判断「这条决策是不是已经在看板上」。
+ *
+ * 判定顺序（命中任一即视为同一条）：
+ *   1. `id` 相同 —— 显式重复；
+ *   2. 标题 + 问题（归一化后）完全相同；
+ *   3. 标题相同，且选项 key 集合相同 —— 挡住「同一件事，但问题那段被改写」；
+ *   4. 标题相同且两边都没有选项 —— 「要不要」型重复出现。
+ *
+ * ⚠️ 保守优先：宁可漏判（多出一条重复）也不误判（把两件不同的事合成一条）。
+ * 所以「标题相同但选项不同」**不算**重复 —— 那多半是同一件事的两个不同方案列表。
+ *
+ * @returns {{item: object, reason: string} | null} 命中的既有条目与命中原因
+ */
+export function findDuplicate(items, draft) {
+  const list = Array.isArray(items) ? items : [];
+  const id = typeof draft?.id === 'string' ? draft.id.trim() : '';
+  if (id !== '') {
+    const sameId = list.find((item) => item.id === id);
+    if (sameId !== undefined) return { item: sameId, reason: 'id' };
+  }
+  const key = decisionKey(draft);
+  const exact = list.find((item) => decisionKey(item) === key);
+  if (exact !== undefined) return { item: exact, reason: 'exact' };
+
+  const title = normalizeDecisionText(draft?.title);
+  if (title === '') return null;
+  const sameTitle = list.filter((item) => normalizeDecisionText(item.title) === title);
+  if (sameTitle.length === 0) return null;
+
+  const draftOptions = optionKeySet(draft?.options);
+  // 两边都没给选项（「要不要」型）：标题相同就是同一条。
+  if (draftOptions === '') {
+    const noOptions = sameTitle.find((item) => optionKeySet(item.options) === '');
+    if (noOptions !== undefined) return { item: noOptions, reason: 'title' };
+  }
+  const sameOptions = sameTitle.find((item) => optionKeySet(item.options) === draftOptions);
+  if (sameOptions !== undefined) return { item: sameOptions, reason: 'title+options' };
+  return null;
+}
+
+/**
+ * 把新草稿里「既有条目还空着」的字段补上 —— 只补空，不覆盖已有值。
+ *
+ * 用途：重复块不新增条目，但第一次可能没写全（比如漏了代价、漏了原话）；
+ * 这时把缺的补进去，比丢掉更有用，也不会改动任何已经写好的字段。
+ *
+ * @returns {boolean} 是否真的改动了条目
+ */
+export function fillMissingFields(item, draft) {
+  if (item === null || typeof item !== 'object' || draft === null || typeof draft !== 'object') return false;
+  let changed = false;
+  if (typeof item.question === 'string' && item.question.trim() === '' && typeof draft.question === 'string' && draft.question.trim() !== '') {
+    item.question = draft.question;
+    changed = true;
+  }
+  if (Array.isArray(item.options) && item.options.length === 0 && Array.isArray(draft.options) && draft.options.length > 0) {
+    const options = draft.options
+      .filter((option) => option !== null && option !== undefined && typeof option.key === 'string' && option.key.trim() !== ''
+        && typeof option.label === 'string' && option.label.trim() !== '')
+      .map((option) => ({ key: option.key.trim(), label: option.label.trim(), cost: typeof option.cost === 'string' ? option.cost : '' }));
+    if (options.length > 0) {
+      item.options = options;
+      changed = true;
+      const recommended = typeof draft.recommended === 'string' ? draft.recommended.trim() : '';
+      if (recommended !== '' && (typeof item.recommended !== 'string' || item.recommended === '') && options.some((option) => option.key === recommended)) {
+        item.recommended = recommended;
+      }
+    }
+  }
+  if (Array.isArray(item.impact) && item.impact.length === 0 && Array.isArray(draft.impact) && draft.impact.length > 0) {
+    item.impact = draft.impact.filter((entry) => typeof entry === 'string' && entry.trim() !== '');
+    if (item.impact.length > 0) changed = true;
+  }
+  if (Array.isArray(item.links) && item.links.length === 0 && Array.isArray(draft.links) && draft.links.length > 0) {
+    item.links = draft.links.filter((entry) => typeof entry === 'string' && entry.trim() !== '');
+    if (item.links.length > 0) changed = true;
+  }
+  const quote = typeof draft.quote === 'string' ? draft.quote.trim() : '';
+  if (quote !== '' && item.source !== null && typeof item.source === 'object'
+    && (typeof item.source.quote !== 'string' || item.source.quote.trim() === '')) {
+    item.source.quote = quote;
+    changed = true;
+  }
+  return changed;
+}
 /** 纯粹「还没人动过」的条目。 */
 export function pendingItems(doc) {
   return doc.items.filter((item) => item.status === 'pending');

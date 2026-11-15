@@ -1,6 +1,6 @@
 {
   "name": "dsh-decisions-board",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "会话区右上角的「待拍板」看板：角标显示待决数，抽屉按原委组织每条决策，选择结果只回填输入框（不自动发送）。",

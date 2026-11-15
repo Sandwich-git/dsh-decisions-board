@@ -390,6 +390,58 @@ test('autoCapture:false 时不注入提示段、也不订阅 assistant/message',
   const eventListeners = host.listeners.filter((entry) => entry.name === 'session/event');
   assert.equal(eventListeners.length, 1, '只剩自动收口那一个订阅');
 });
+test('add 同一条两次：第二次不新增，返回既有的那条', async () => {
+  const host = await mount();
+  const tool = host.tools[0];
+  const first = await tool.execute({ action: 'add', title: '要不要加搜索框', question: '条目多了不好找', options: [] }, { agent: { session: { header: { id: host.session, cwd: host.workdir } } } });
+  assert.equal(first.added, 'Q-1');
+  const second = await tool.execute({ action: 'add', title: '要不要加搜索框？', question: '条目多了不好找。', options: [] }, { agent: { session: { header: { id: host.session, cwd: host.workdir } } } });
+  assert.equal(second.added, null, '不该新增');
+  assert.equal(second.duplicate.id, 'Q-1');
+  assert.equal(second.pendingCount, 3, '待拍数不该 +1');
+  const doc = JSON.parse(await readFile(host.file, 'utf8'));
+  assert.equal(doc.items.filter((item) => /搜索框/.test(item.title)).length, 1, '文件里只该有一条');
+});
+
+test('add 措辞被改写但选项相同：仍判重复；内容不同的决策照常新增', async () => {
+  const host = await mount();
+  const tool = host.tools[0];
+  const ctxArg = { agent: { session: { header: { id: host.session, cwd: host.workdir } } } };
+  await tool.execute({ action: 'add', title: '发布策略', question: '第三个需求没定型', options: [{ key: 'a', label: '先发', cost: '要等' }, { key: 'b', label: '等', cost: '一起等' }] }, ctxArg);
+  const rewritten = await tool.execute({ action: 'add', title: '发布策略', question: '完全重写了这段说明', options: [{ key: 'b', label: '等', cost: '一起等' }, { key: 'a', label: '先发', cost: '要等' }] }, ctxArg);
+  assert.equal(rewritten.added, null);
+  assert.equal(rewritten.duplicate.reason, 'title+options');
+  const different = await tool.execute({ action: 'add', title: '要不要加搜索框', question: '另一个完全不同的决定', options: [] }, ctxArg);
+  assert.ok(different.added, '不同的决策必须能进来');
+});
+
+test('重复块可以把第一次没写全的字段补上，而不是再开一条', async () => {
+  const host = await mount();
+  const tool = host.tools[0];
+  const ctxArg = { agent: { session: { header: { id: host.session, cwd: host.workdir } } } };
+  await tool.execute({ action: 'add', title: '要不要加搜索框', question: '条目多了不好找', options: [] }, ctxArg);
+  const filled = await tool.execute({ action: 'add', title: '要不要加搜索框', question: '条目多了不好找', options: [{ key: 'a', label: '加', cost: '多一块界面' }], recommended: 'a' }, ctxArg);
+  assert.equal(filled.added, null);
+  assert.equal(filled.duplicate.filled, true, '应当补全');
+  const doc = JSON.parse(await readFile(host.file, 'utf8'));
+  const target = doc.items.find((item) => /搜索框/.test(item.title));
+  assert.equal(target.options.length, 1);
+  assert.equal(target.recommended, 'a');
+});
+
+test('消息里的重复块也不新增；同一条消息两个相同块只进一条', async () => {
+  const host = await mount();
+  const emit = host.listeners.filter((entry) => entry.name === 'session/event').map((entry) => entry.listener);
+  const session = { id: host.session, header: { id: host.session, cwd: host.workdir } };
+  const block = (payload) => ':::decisions\n' + JSON.stringify(payload) + '\n:::';
+  const emitAll = (text) => { for (const listener of emit) listener(session, { type: 'assistant/message', data: { message: { content: [{ type: 'text', text }] } } }); };
+  emitAll(block({ title: '要不要加缓存', question: '每次请求都重算', options: [] }) + '\n' + block({ title: '要不要加缓存', question: '每次请求都重算', options: [] }));
+  await new Promise((tick) => setTimeout(tick, 150));
+  emitAll(block({ title: '要不要加缓存', question: '每次请求 都要重算。', options: [] }));
+  await new Promise((tick) => setTimeout(tick, 150));
+  const doc = JSON.parse(await readFile(host.file, 'utf8'));
+  assert.equal(doc.items.filter((item) => /缓存/.test(item.title)).length, 1, '只该有一条');
+});
 test('dir 不是绝对路径时回 400（不静默改用别的目录）', async () => {
   const host = await mount();
   const response = await host.routes.find((route) => route.path.endsWith('/state'))

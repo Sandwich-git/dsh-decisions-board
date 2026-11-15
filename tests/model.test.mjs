@@ -8,6 +8,9 @@ import {
   composeFill,
   composeNextDraft,
   extractDecisionBlocks,
+  fillMissingFields,
+  findDuplicate,
+  normalizeDecisionText,
   decidedItems,
   endpointUrl,
   itemView,
@@ -243,6 +246,65 @@ test('extractDecisionBlocks：只认 :::decisions 标记块，块外文本一律
   // 没有标记就不该抓到任何东西（哪怕文本里到处是「A 还是 B」）
   assert.deepEqual(extractDecisionBlocks('你想选 A 还是 B？'), []);
   assert.deepEqual(extractDecisionBlocks(''), []);
+});
+test('normalizeDecisionText：全角/空格/标点/大小写差异都归一到同一形状', () => {
+  const a = normalizeDecisionText('这一版先发布，还是再等一个需求？');
+  const b = normalizeDecisionText('这一版 先发布 还是再等一个需求');
+  const c = normalizeDecisionText('这一版先发布,还是再等一个需求?');
+  assert.equal(a, b);
+  assert.equal(a, c);
+  assert.equal(normalizeDecisionText('Release Now'), normalizeDecisionText('release  now'));
+  assert.equal(normalizeDecisionText('  '), '');
+  assert.equal(normalizeDecisionText(null), '');
+});
+
+test('findDuplicate：id / 完全相同 / 标题同且选项同 —— 三种都算同一件事', () => {
+  const items = doc([
+    { id: 'Q-1', title: '先发布还是再等', question: '第三个需求没定型', options: [{ key: 'a', label: '先发' }, { key: 'b', label: '等' }] },
+    { id: 'Q-2', title: '要不要加搜索框', question: '', options: [] }
+  ]).items;
+  // 1) id 相同
+  assert.equal(findDuplicate(items, { id: 'Q-1', title: '别的事' }).reason, 'id');
+  // 2) 标题 + 问题归一化后相同（标点/空格不同）
+  assert.equal(findDuplicate(items, { title: '先发布还是再等？', question: '第三个需求 没定型' }).reason, 'exact');
+  // 3) 标题相同、问题被改写，但选项 key 集合相同
+  assert.equal(findDuplicate(items, { title: '先发布还是再等', question: '完全重写的问题描述', options: [{ key: 'b', label: '等' }, { key: 'a', label: '先发' }] }).reason, 'title+options');
+  // 4) 标题相同、两边都没选项
+  assert.equal(findDuplicate(items, { title: '要不要加搜索框', question: '另一个理由' }).reason, 'title');
+});
+
+test('findDuplicate：标题相同但选项不同 —— 不判重复（宁可漏判也不误判）', () => {
+  const items = doc([{ id: 'Q-1', title: '发布策略', question: '两个改动做完了', options: [{ key: 'a', label: '先发' }] }]).items;
+  assert.equal(findDuplicate(items, { title: '发布策略', question: '另一件完全不同的事', options: [{ key: 'x', label: '换一种' }] }), null);
+  // 完全不相干的决策也不该被合并
+  assert.equal(findDuplicate(items, { title: '要不要加搜索框', options: [] }), null);
+  // 标题相同、两边都没写问题描述 ⇒ 信息不足以区分，按同一条处理（补空而不是新增）。
+  const bare = doc([{ id: 'Q-9', title: '发布策略', options: [] }]).items;
+  assert.equal(findDuplicate(bare, { title: '发布策略', options: [{ key: 'x', label: '换一种' }] }).reason, 'exact');
+  assert.equal(findDuplicate([], { title: '任意' }), null);
+});
+
+test('fillMissingFields：只补空字段，绝不覆盖已有值', () => {
+  const items = doc([{ id: 'Q-1', title: '要不要加搜索框', question: '', options: [], impact: [], links: [], source: { quote: '' } }]).items;
+  const changed = fillMissingFields(items[0], {
+    question: '条目多了不好找',
+    options: [{ key: 'a', label: '加', cost: '多一块界面' }],
+    recommended: 'a',
+    impact: ['面板复杂度'],
+    links: ['README.md'],
+    quote: '条目多了以后不好找。'
+  });
+  assert.equal(changed, true);
+  assert.equal(items[0].question, '条目多了不好找');
+  assert.equal(items[0].options.length, 1);
+  assert.equal(items[0].recommended, 'a');
+  assert.deepEqual(items[0].impact, ['面板复杂度']);
+  assert.equal(items[0].source.quote, '条目多了以后不好找。');
+  // 再补一次：全部已有 → 不改动
+  const again = fillMissingFields(items[0], { question: '另一个说法', options: [{ key: 'b', label: '不加' }] });
+  assert.equal(again, false);
+  assert.equal(items[0].question, '条目多了不好找');
+  assert.equal(items[0].options[0].key, 'a');
 });
 test('buildView 空文档不炸', () => {
   const view = buildView(normalizeDoc(null).doc, 5);
