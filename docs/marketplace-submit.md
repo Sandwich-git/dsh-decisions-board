@@ -47,6 +47,33 @@
 > 若将来还要清理历史，顺序是：**先清洗工作树 → 删库重建 → 单次 push**，不要指望 force push。
 > ⚠️ 一个实操提醒：`raw.githubusercontent.com` 有 CDN 缓存，刚 push 完立刻拉可能还是旧内容。
 > 核对远端内容请用 GitHub API（`api.github.com/repos/.../contents/<path>`）或直接 clone。
+## 零之二、npm 发布状态（2026-11-16 03:28 +08:00）
+
+| 项 | 值 |
+| --- | --- |
+| 包名 / 版本 | `dsh-decisions-board@0.4.0` |
+| 内容 | 14 个文件 · 217.2 kB（`lib/`、`src/model.js`、`cordis.patch.yml`、README、LICENSE、CHANGELOG、examples、4 张截图） |
+| 状态 | **staged 审核中** —— registry 公开视图当前只有 `0.0.0-stage` 占位 |
+| 证据 | 重复发布返回 `E409 Cannot publish over previously staged version "0.4.0"` |
+| 维护者字段 | `sandwichgit`（本账号），确认是我们的包 |
+
+### 发布时踩到的两个坑
+
+1. **`npm publish` 需要 bypass-2fa 的token**：`npm login --auth-type=web` 拿到的会话 token 会返回
+   `E403 Two-factor authentication or granular access token with bypass 2fa enabled is required`。
+   解法：Classic Token → **Automation** 类型（Granular 的话必须勾 *Bypass two-factor authentication*）。
+2. **新包首发进入 staged 审核**：公开前 registry 只暴露一个 `0.0.0-stage` 占位
+   （描述就是 `Temporary package placeholder for staged publishing`），审核通过后 0.4.0 才可安装。
+
+### 对投稿时机的影响
+
+24 小时门槛在 **2026-11-16 21:39:39 (+08:00)**，与审核时间不冲突；
+但提 PR 前应确认 npm 上已能看到 `0.4.0`，否则评审点进 npm 只看到占位版本。核对方法：
+
+```bash
+npm view dsh-decisions-board versions --json   # 期望包含 "0.4.0"（不再是只有 0.0.0-stage）
+```
+
 ## 一、必须先做的三件事
 
 | # | 事 | 谁做 | 为什么 |

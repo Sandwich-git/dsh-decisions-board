@@ -2,6 +2,11 @@
 
 > 完整证据（怎么验的、抓到什么缺陷）见 [docs/VERIFICATION.md](docs/VERIFICATION.md)。
 
+## 0.4.0 发布记录
+
+- 已发布到 npm（`dsh-decisions-board@0.4.0`，14 文件 / 217.2 kB），**首发进入 staged 审核**；
+- 发布凭据要求 Automation token（会话 token 会被 403 挡下），详见 `docs/marketplace-submit.md`。
+
 ## 0.4.0 — 修重复决策项：新增前先判重
 
 **问题**：`action=add` 完全没有去重（只靠自动编号避开 id 冲突）；自动捕获路径只比对
