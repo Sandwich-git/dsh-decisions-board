@@ -19,6 +19,14 @@
 
 需要一个能装本地插件的 DSH Desktop（Plugin Manager 通道）。
 
+**方式一：npm**（预构建，装的时候不需要构建授权）
+
+```bash
+dsh plugin add dsh-decisions-board
+```
+
+**方式二：本地 tgz**
+
 ```powershell
 npm pack   # 产出 dsh-decisions-board-<version>.tgz（远小于 8 MiB 上限）
 ```
