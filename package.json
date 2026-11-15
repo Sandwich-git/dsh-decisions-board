@@ -1,0 +1,50 @@
+{
+  "name": "dsh-decisions-board",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "description": "会话区右上角的「待拍板」看板：角标显示待决数，抽屉按原委组织每条决策，选择结果只回填输入框（不自动发送）。",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./model": "./src/model.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib",
+    "src/model.js",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "examples",
+    "docs/images"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "dsh-desktop-workbenches"
+      ]
+    },
+    "manifestVersion": 1
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "scripts": {
+    "build": "node tools/build-client.mjs",
+    "test": "node --test tests/model.test.mjs tests/bundle.test.mjs tests/host.test.mjs tests/client.test.mjs",
+    "serve": "node tools/serve.mjs"
+  },
+  "license": "MIT",
+  "author": "YG",
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.2-rc.1 <0.3.0-0"
+  }
+}

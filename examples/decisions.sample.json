@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "session": "example",
+  "items": [
+    {
+      "id": "Q-1",
+      "kind": "choice",
+      "status": "pending",
+      "title": "这一版先发布还是再等一个需求",
+      "question": "两个改动已经做完并通过测试，第三个需求还在讨论中，不确定要等多久。",
+      "options": [
+        {
+          "key": "a",
+          "label": "先发布",
+          "cost": "第三个需求的使用者要等下一版"
+        },
+        {
+          "key": "b",
+          "label": "等第三个做完一起发",
+          "cost": "已经做完的两个也要跟着等"
+        }
+      ],
+      "recommended": "a",
+      "impact": [
+        "使用者多久能用到",
+        "下一次发版时间"
+      ],
+      "links": [
+        "CHANGELOG.md"
+      ],
+      "source": {
+        "turn": 12,
+        "anchor": "msg-q1",
+        "quote": "先发一版看看，别都攒着。"
+      },
+      "decided": null
+    },
+    {
+      "id": "Q-2",
+      "kind": "choice",
+      "status": "pending",
+      "title": "要不要给面板加一个搜索框",
+      "question": "条目超过二十条之后，靠滚动找会很慢。",
+      "options": [],
+      "recommended": "",
+      "impact": [
+        "面板复杂度"
+      ],
+      "links": [],
+      "source": {
+        "turn": 18,
+        "anchor": "msg-q2",
+        "quote": "条目多了以后不好找。"
+      },
+      "decided": null
+    },
+    {
+      "id": "Q-3",
+      "kind": "choice",
+      "status": "decided",
+      "title": "点击选项要不要直接发送",
+      "question": "点选项后是填进输入框，还是直接当消息发出去。",
+      "options": [
+        {
+          "key": "a",
+          "label": "只填充不发送",
+          "cost": "人还要按一次回车"
+        },
+        {
+          "key": "b",
+          "label": "直接发送",
+          "cost": "误点就不可撤回"
+        }
+      ],
+      "recommended": "a",
+      "impact": [
+        "误操作代价"
+      ],
+      "links": [],
+      "source": {
+        "turn": 4,
+        "anchor": "msg-q3",
+        "quote": "别替我做决定。"
+      },
+      "decided": {
+        "value": "a",
+        "at": "2026-11-15T18:14:12+08:00",
+        "by": "user",
+        "note": "已经按这个行为实现"
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>决策看板 · 路径 B 验证页</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font: 14px/1.6 system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif; background: #16181d; color: #e6e8eb; }
+    .session-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #2a2d34; }
+    .session-header .title { font-weight: 600; }
+    .session-header .spacer { flex: 1; }
+    .fake-note { color: #8a8f98; font-size: 12px; }
+    main { padding: 18px 16px; max-width: 820px; }
+    textarea { width: 100%; min-height: 76px; box-sizing: border-box; background: #1f2126; color: inherit; border: 1px solid #2f333b; border-radius: 8px; padding: 10px; font: inherit; }
+    .verdict { margin-top: 8px; font-size: 12px; color: #7ee2a8; min-height: 18px; }
+    .legend { font-size: 12px; color: #8a8f98; margin: 4px 0 14px; }
+  </style>
+</head>
+<body>
+  <div class="session-header">
+    <span class="title">decision-board · demo</span>
+    <span class="fake-note">（这是假会话栏，只为给触发器一个「右上角」）</span>
+    <span class="spacer"></span>
+    <span id="trigger-slot"></span>
+  </div>
+  <main>
+    <p class="legend">路径 B：只验证「文件 → 界面」与「选择 → 回填」。抽屉会从右侧滑出（420px）。</p>
+    <label for="composer" class="fake-note">输入框（模拟会话输入框，回填只写这里，不会发送）</label>
+    <textarea id="composer" placeholder="点抽屉里的 [A] 会把一句话填到这里"></textarea>
+    <div class="verdict" id="verdict"></div>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

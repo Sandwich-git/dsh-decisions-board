@@ -1,0 +1,17 @@
+# dsh-decisions-board 的组合补丁：把插件挂进 profile。
+#
+# name 必须写 npm 包名（Node 才能解析到安装后的代码）。
+# config 全部可选：
+#   file       - 直接指定 decisions 文件的绝对路径（显式覆盖）；留空 = 按会话解析：
+#                <会话工作目录>/.dsh/decisions/<sessionId>.json —— 每个会话一份，互不共享
+#   autoSettle  - 默认 true：订阅 session/event，人在会话里发出答案后自动收口为 decided。
+#   autoCapture - 默认 true：注入一段 systemPrompt（告诉模型 :::decisions 块格式），
+#                 并订阅 assistant/message，把模型写的块自动变成待拍项 —— 装完即用靠它。
+#                 设为 false 则只保留显式 decisions_board action=add。
+- insert:
+    - id: dsh-decisions-board
+      name: 'dsh-decisions-board'
+      config:
+        file: ''
+        autoSettle: true
+        autoCapture: true
