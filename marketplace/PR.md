@@ -31,8 +31,8 @@ Tests: 58 across four files (`node --test tests/*.test.mjs`), covering the model
 | --- | --- |
 | `dsh.bundle` 声明 | ✅ `dsh.bundle.patch: ./cordis.patch.yml` |
 | 真实可用代码（非占位/纯 README） | ✅ 宿主 500+ 行、浏览器半、58 条测试 |
-| 仓库创建满 1 天（CI 自动查） | ⏳ **建仓后等满 24 小时再提 PR** |
-| 加 `dsh-plugin` topic | ⏳ 建仓后在 About 里添加 |
+| 仓库创建满 1 天（CI 自动查） | ✅ 建仓于 2026-11-15 21:39 (+08:00)，提 PR 时已满 24 小时 |
+| 加 `dsh-plugin` topic | ✅ 已在 About 里添加 |
 | 描述属实、无营销词 | ✅ 逐句对得上代码；无「最好/最强」类词 |
 | 每个 PR ≤ 3 条 | ✅ 只加 1 条 |
 | 只改自己的条目 | ✅ 只新增一个文件 |
