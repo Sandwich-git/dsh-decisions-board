@@ -3,7 +3,7 @@
  *
  * 同一份文件被三处使用：
  *   1. 宿主半 lib/index.js —— 读/写 decisions.json 时的校验与合并；
- *   2. 路径 B 小页（tools/serve.mjs + public/）—— 浏览器里直接 import；
+ *   2. 本地预览页（tools/serve.mjs + public/）—— 浏览器里直接 import；
  *   3. 客户端插件 lib/client.js —— 由 tools/build-client.mjs 内联进 bundle。
  * 因此这里不得出现 import/export 之外的模块语法，也不得依赖 node: 或 DOM。
  *
@@ -347,7 +347,7 @@ export function applyDecisionToRaw(raw, patch) {
   target.decided = {
     value: patch.value,
     at,
-    by: typeof patch.by === 'string' && patch.by !== '' ? patch.by : 'YG',
+    by: typeof patch.by === 'string' && patch.by !== '' ? patch.by : 'user',
     note: typeof patch.note === 'string' ? patch.note : ''
   };
   return raw;
@@ -380,7 +380,7 @@ export function withDecision(doc, patch) {
     decided: {
       value,
       at,
-      by: typeof patch.by === 'string' && patch.by !== '' ? patch.by : 'YG',
+      by: typeof patch.by === 'string' && patch.by !== '' ? patch.by : 'user',
       note: typeof patch.note === 'string' ? patch.note : ''
     }
   };

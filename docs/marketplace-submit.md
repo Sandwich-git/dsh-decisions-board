@@ -87,7 +87,7 @@ description:
 | --- | --- | --- |
 | `package.json` 声明 `dsh.bundle` | ✅ | `dsh.bundle.patch: ./cordis.patch.yml`（只有 `dsh.client` 是最常见的被拒原因） |
 | 真实可用代码 | ✅ | `lib/index.js` 宿主半 + `lib/client.js` 浏览器半 + 58 条测试 |
-| 活跃维护 | ✅ | 0.1.0 → 0.3.1，`CHANGELOG.md` 十轮 |
+| 活跃维护 | ✅ | 0.1.x → 0.3.1，`CHANGELOG.md` 记录了十轮迭代 |
 | 描述属实 | ✅ | 逐句对得上代码；描述里的 session header / `Q-2 选 B` / `filled` 都能在仓库里找到 |
 | 非聚合包 | ✅ | 无 dependencies，只有一个 `@deepseek-ai/cordis` peer |
 | 一个 PR ≤ 3 条 | ✅ | 只加 1 条 |

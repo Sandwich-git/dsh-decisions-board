@@ -42,7 +42,7 @@
     "serve": "node tools/serve.mjs"
   },
   "license": "MIT",
-  "author": "YG",
+  "author": "Sandwich-git",
   "engines": {
     "node": ">=20",
     "dsh": ">=0.2.2-rc.1 <0.3.0-0"

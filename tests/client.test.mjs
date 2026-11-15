@@ -211,7 +211,7 @@ test('点选项后 POST decide 带 sessionId，且回填走 setDraft', async () 
     assert.ok(decide !== undefined, 'clicking an option must POST to decide');
     assert.equal(decide.method, 'POST');
     assert.equal(decide.url, 'http://127.0.0.1:1/api/decisions-board/decide?sessionId=S1');
-    assert.deepEqual(JSON.parse(decide.body), { id: 'Q-11', value: 'a', by: 'YG' });
+    assert.deepEqual(JSON.parse(decide.body), { id: 'Q-11', value: 'a', by: 'user' });
     assert.deepEqual(client.draftWrites, ['Q-11 选 A（先发）'], '空草稿时就是那一句');
     assert.deepEqual(client.insertWrites, [], '不许走 insertText（会被别的插件劫持）');
   } finally { client.stop(); }
@@ -228,7 +228,7 @@ test('没有选项的条目也有「是 / 否」两个按钮，点「是」按 y
     await new Promise((resolveTick) => setImmediate(resolveTick));
     await new Promise((resolveTick) => setImmediate(resolveTick));
     const decide = client.calls.find((call) => call.url.includes('/decide'));
-    assert.deepEqual(JSON.parse(decide.body), { id: 'Q-16', value: 'yes', by: 'YG' });
+    assert.deepEqual(JSON.parse(decide.body), { id: 'Q-16', value: 'yes', by: 'user' });
   } finally { client.stop(); }
 });
 
@@ -283,8 +283,8 @@ test('点「我已发送」才发 confirm:true，条目这才离开清单', asyn
     await new Promise((resolveTick) => setImmediate(resolveTick));
     const posts = client.calls.filter((call) => call.url.includes('/decide'));
     assert.equal(posts.length, 2, '两次 POST：先 decide，再 confirm');
-    assert.deepEqual(JSON.parse(posts[0].body), { id: 'Q-11', value: 'a', by: 'YG' });
-    assert.deepEqual(JSON.parse(posts[1].body), { id: 'Q-11', value: 'a', by: 'YG', confirm: true });
+    assert.deepEqual(JSON.parse(posts[0].body), { id: 'Q-11', value: 'a', by: 'user' });
+    assert.deepEqual(JSON.parse(posts[1].body), { id: 'Q-11', value: 'a', by: 'user', confirm: true });
     assert.equal(findCard(client.document, 'Q-11').dataset.status, 'decided', '确认后才移到已定');
     let toast = null;
     walk(client.document.body, (node) => {

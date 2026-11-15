@@ -115,7 +115,7 @@ function DecisionsBadge(props) {
 				const response = await fetch(endpointUrl(API_BASE, 'decide', sessionId), {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ id, value, by: 'YG' })
+					body: JSON.stringify({ id, value, by: 'user' })
 				});
 				const result = await response.json();
 				if (!result.ok) throw new Error(result.error ?? 'decide failed');
@@ -128,7 +128,7 @@ function DecisionsBadge(props) {
 				const response = await fetch(endpointUrl(API_BASE, 'decide', sessionId), {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ id, value, by: 'YG', confirm: true })
+					body: JSON.stringify({ id, value, by: 'user', confirm: true })
 				});
 				const result = await response.json();
 				if (!result.ok) throw new Error(result.error ?? 'confirm failed');

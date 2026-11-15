@@ -75,7 +75,7 @@ test('空 options 的条目：composeFill 给「id 选 是」，decided 回显�
   const parsed = doc([{ id: 'Q-16', options: [] }]);
   assert.equal(composeFill(parsed.items[0], 'yes'), 'Q-16 选 是');
   assert.equal(composeFill(parsed.items[0], 'no'), 'Q-16 选 否');
-  const applied = withDecision(parsed, { id: 'Q-16', value: 'yes', at: '2026-11-15T20:00:00Z', by: 'YG' });
+  const applied = withDecision(parsed, { id: 'Q-16', value: 'yes', at: '2026-11-15T20:00:00Z', by: 'someone' });
   assert.equal(applied.doc.items[0].decided.value, 'yes');
   assert.equal(itemView(applied.doc.items[0]).decided.valueLabel, '是');
   assert.throws(() => withDecision(parsed, { id: 'Q-16', value: 'a' }), /must be yes or no/);
@@ -94,8 +94,8 @@ test('待拍计数 = pending + filled；deferred/cancelled 不算', () => {
   const view = buildView(doc([
     { id: 'P-1' },
     { id: 'P-2' },
-    { id: 'F-1', status: 'filled', decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'YG' } },
-    { id: 'D-1', status: 'decided', decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'YG' } },
+    { id: 'F-1', status: 'filled', decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'someone' } },
+    { id: 'D-1', status: 'decided', decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'someone' } },
     { id: 'X-1', status: 'deferred' }
   ]));
   assert.equal(view.pendingCount, 3, 'pending 2 + filled 1');
@@ -105,10 +105,10 @@ test('待拍计数 = pending + filled；deferred/cancelled 不算', () => {
 
 test('已定条目按 decided.at 倒序取最近 N 条，缺失时间戳排最后', () => {
   const parsed = doc([
-    { id: 'D-1', status: 'decided', decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'YG' } },
-    { id: 'D-2', status: 'decided', decided: { value: 'a', at: '2026-03-01T00:00:00Z', by: 'YG' } },
-    { id: 'D-3', status: 'decided', decided: { value: 'a', at: '2026-02-01T00:00:00Z', by: 'YG' } },
-    { id: 'D-4', status: 'decided', decided: { value: 'a', at: '', by: 'YG' } }
+    { id: 'D-1', status: 'decided', decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'someone' } },
+    { id: 'D-2', status: 'decided', decided: { value: 'a', at: '2026-03-01T00:00:00Z', by: 'someone' } },
+    { id: 'D-3', status: 'decided', decided: { value: 'a', at: '2026-02-01T00:00:00Z', by: 'someone' } },
+    { id: 'D-4', status: 'decided', decided: { value: 'a', at: '', by: 'someone' } }
   ]);
   assert.deepEqual(decidedItems(parsed, 3).map((item) => item.id), ['D-2', 'D-3', 'D-1']);
   assert.deepEqual(decidedItems(parsed, 10).map((item) => item.id), ['D-2', 'D-3', 'D-1', 'D-4']);
@@ -131,7 +131,7 @@ test('itemView 的 decided.valueLabel 能翻译回选项键', () => {
     id: 'Q-12',
     status: 'decided',
     options: [{ key: 'a', label: '维持' }],
-    decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'YG', note: '已落 04' }
+    decided: { value: 'a', at: '2026-01-01T00:00:00Z', by: 'someone', note: '已确认' }
   }]);
   const view = itemView(parsed.items[0]);
   assert.equal(view.decided.valueLabel, 'A');
@@ -140,7 +140,7 @@ test('itemView 的 decided.valueLabel 能翻译回选项键', () => {
 
 test('withDecision 是纯函数：写回 filled（不是 decided），不改原文档，并返回回填句', () => {
   const parsed = doc([{ id: 'Q-11', options: [{ key: 'a', label: '扩阈值' }] }]);
-  const applied = withDecision(parsed, { id: 'Q-11', value: 'a', at: '2026-11-15T10:00:00Z', by: 'YG' });
+  const applied = withDecision(parsed, { id: 'Q-11', value: 'a', at: '2026-11-15T10:00:00Z', by: 'someone' });
   assert.equal(parsed.items[0].status, 'pending');
   assert.equal(parsed.items[0].decided, null);
   assert.equal(applied.doc.items[0].status, 'filled', '默认只到 filled —— 还要人按回车');

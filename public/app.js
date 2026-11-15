@@ -14,7 +14,7 @@ const board = createBoard({
     const response = await fetch('/api/decide', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id, value, by: 'YG', confirm: true })
+      body: JSON.stringify({ id, value, by: 'user', confirm: true })
     });
     const body = await response.json();
     if (!body.ok) throw new Error(body.error ?? 'confirm failed');
@@ -26,7 +26,7 @@ const board = createBoard({
     const response = await fetch('/api/decide', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id, value, by: 'YG' })
+      body: JSON.stringify({ id, value, by: 'user' })
     });
     const body = await response.json();
     if (!body.ok) throw new Error(body.error ?? 'decide failed');

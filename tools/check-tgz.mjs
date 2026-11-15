@@ -1,6 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
-const buf = readFileSync('dsh-decisions-board-0.1.0.tgz');
+// 取当前目录下最新的 dsh-decisions-board-*.tgz（不写死版本号）
+const tgz = readdirSync('.').filter((f) => /^dsh-decisions-board-.*\.tgz$/.test(f)).sort().pop();
+if (!tgz) { console.error('no dsh-decisions-board-*.tgz in cwd; run npm pack first'); process.exit(1); }
+const buf = readFileSync(tgz);
 const tar = gunzipSync(buf);
 let off = 0; const files = [];
 while (off + 512 <= tar.length) {

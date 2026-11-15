@@ -64,7 +64,7 @@ assert.match(state.file, /decisions[\\/]smoke-session\.json$/);
 const decideRes = await decideRoute.fetch(new Request('http://local/api/decisions-board/decide' + query, {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ id: 'S-1', value: 'a', by: 'YG' })
+  body: JSON.stringify({ id: 'S-1', value: 'a', by: 'user' })
 }));
 assert.equal(decideRes.status, 200);
 const decided = await decideRes.json();
@@ -81,7 +81,7 @@ assert.equal(written.decided.value, 'a');
 const confirmRes = await decideRoute.fetch(new Request('http://local/api/decisions-board/decide' + query, {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ id: 'S-1', value: 'a', by: 'YG', confirm: true })
+  body: JSON.stringify({ id: 'S-1', value: 'a', by: 'user', confirm: true })
 }));
 assert.equal(confirmRes.status, 200);
 const confirmed = await confirmRes.json();

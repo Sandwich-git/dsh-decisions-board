@@ -84,7 +84,7 @@ ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register
 设计意图是「位置在会话区域右上角（header 右侧）」，当时尚未确认能否注册——
 **确认结果：可以**，但实现上不是「往 layout 的 header 插槽注册」，而是
 「往 **conversation** 声明的 session header actions 列表注册」。当时的兜底方案
-（「退回 statusbar 或路径 B」）**不需要启用**。
+（「退回 statusbar 或预览模式」）**不需要启用**。
 
 ## 7. 附带确认（同轮取证，供后续步骤）
 

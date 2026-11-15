@@ -3,7 +3,7 @@
  *
  * 为什么不用框架：同一个界面要跑在两个宿主里 ——
  *   1. 路径 A：DSH 客户端插件（React 只提供一个挂载点）；
- *   2. 路径 B：本机小页（纯 ESM 直接 import）。
+ *   2. 本地预览：本机小页（纯 ESM 直接 import）。
  * 用原生 DOM 写一份，两边都是「把节点塞进容器」，不存在第二份实现。
  *
  * 只消费 model.js 的 view 对象（itemView/buildView 的产物），不读原始 JSON 字段。
@@ -82,7 +82,7 @@ function el(tag, className, children) {
 /**
  * 创建一块看板（一个触发器 + 一个抽屉），DOM 由调用方提供挂载点。
  * @param options.onDecide (id, value) => Promise<void> 人点了某个选项
- * @param options.onLink (link) => void 可选：点链接（路径 B 打开新标签；插件里没有就只显示文字）
+ * @param options.onLink (link) => void 可选：点链接（预览模式 打开新标签；插件里没有就只显示文字）
  * @param options.fillHint 回填成功后的提示文案
  */
 export function createBoard(options = {}) {

@@ -87,7 +87,7 @@ test('state 读真实文件：pending 计数与 file 路径都对', async () => 
 
 test('decide 写回 filled（不是 decided）并返回回填句；别的字段不动', async () => {
   const host = await mount();
-  const response = await host.decide({ id: 'S-1', value: 'a', by: 'YG' });
+  const response = await host.decide({ id: 'S-1', value: 'a', by: 'someone' });
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.fill, 'S-1 选 A（甲）');
@@ -97,15 +97,15 @@ test('decide 写回 filled（不是 decided）并返回回填句；别的字段�
   const written = onDisk.items.find((item) => item.id === 'S-1');
   assert.equal(written.status, 'filled');
   assert.equal(written.decided.value, 'a');
-  assert.equal(written.decided.by, 'YG');
+  assert.equal(written.decided.by, 'someone');
   assert.equal(written.title, '甲项', 'decide must not touch other fields');
   assert.equal(onDisk.items.find((item) => item.id === 'S-2').status, 'pending');
 });
 
 test('confirm=true 才把 filled 提升为 decided（人点「我已发送」的路径）', async () => {
   const host = await mount();
-  await host.decide({ id: 'S-1', value: 'a', by: 'YG' });
-  const response = await host.decide({ id: 'S-1', value: 'a', by: 'YG', confirm: true });
+  await host.decide({ id: 'S-1', value: 'a', by: 'someone' });
+  const response = await host.decide({ id: 'S-1', value: 'a', by: 'someone', confirm: true });
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.view.pendingCount, 1, '确认后才离开待拍');
@@ -116,7 +116,7 @@ test('confirm=true 才把 filled 提升为 decided（人点「我已发送」的
 
 test('写回时保留 normalizeDoc 不认识的字段（文件是给人手改的，不能被覆盖掉）', async () => {
   const host = await mount();
-  const response = await host.decide({ id: 'S-1', value: 'a', by: 'YG' });
+  const response = await host.decide({ id: 'S-1', value: 'a', by: 'someone' });
   assert.equal(response.status, 200);
   const onDisk = JSON.parse(await readFile(host.file, 'utf8'));
   const written = onDisk.items.find((item) => item.id === 'S-1');
@@ -155,7 +155,7 @@ test('apply 注册 decisions_board 工具（agent 侧收口入口）', async () 
 test('工具 action=list 只列还等着人动手的条目，并给出复述句', async () => {
   const host = await mount();
   const tool = host.tools[0];
-  await host.decide({ id: 'S-1', value: 'a', by: 'YG' });
+  await host.decide({ id: 'S-1', value: 'a', by: 'someone' });
   const listed = await tool.execute({ action: 'list', dir: host.workdir, sessionId: host.session });
   assert.equal(listed.pendingCount, 2, 'filled 与 pending 都在');
   assert.equal(listed.filledCount, 1);
@@ -167,7 +167,7 @@ test('工具 action=list 只列还等着人动手的条目，并给出复述句'
 test('工具 action=settle 把 filled 收口为 decided，并返回复述句', async () => {
   const host = await mount();
   const tool = host.tools[0];
-  await host.decide({ id: 'S-1', value: 'a', by: 'YG' });
+  await host.decide({ id: 'S-1', value: 'a', by: 'someone' });
   const settled = await tool.execute({ action: 'settle', id: 'S-1', dir: host.workdir, sessionId: host.session });
   assert.equal(settled.settled, 'S-1');
   assert.equal(settled.value, 'a');
@@ -194,7 +194,7 @@ test('默认订阅两个 session/event：自动收口（user/message）+ 自动�
 test('人在会话里发出答案 ⇒ 自动收口为 decided（by: user-message），不需要任何项目约定', async () => {
   const host = await mount();
   const emit = host.listeners[0].listener;
-  await host.decide({ id: 'S-1', value: 'a', by: 'YG' });
+  await host.decide({ id: 'S-1', value: 'a', by: 'someone' });
   const session = { id: host.session, header: { id: host.session, cwd: host.workdir } };
   emit(session, {
     type: 'user/message',
@@ -211,7 +211,7 @@ test('自动收口只认 source.kind=user，且只认「id 选 值」形态（�
   const host = await mount();
   const emit = host.listeners[0].listener;
   const session = { id: host.session, header: { id: host.session, cwd: host.workdir } };
-  await host.decide({ id: 'S-1', value: 'a', by: 'YG' });
+  await host.decide({ id: 'S-1', value: 'a', by: 'someone' });
   // 1) agent 自己的消息
   emit(session, { type: 'user/message', data: { source: { kind: 'user-rpc' }, content: [{ type: 'text', text: 'S-1 选 A' }] } });
   // 2) 随口提到，但不是答案形态
@@ -241,7 +241,7 @@ test('同一工作区的两个会话各自一份文件（会话级隔离，不�
   const decided = await decideRoute.fetch(new Request('http://local/api/decisions-board/decide' + q(host.session), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: 'S-1', value: 'a', by: 'YG' })
+    body: JSON.stringify({ id: 'S-1', value: 'a', by: 'someone' })
   }));
   assert.equal(decided.status, 200);
 
