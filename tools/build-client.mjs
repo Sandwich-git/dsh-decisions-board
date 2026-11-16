@@ -123,6 +123,20 @@ function DecisionsBadge(props) {
 				const mode = await fillComposer(props.inputActions, result.fill, draftRef.current);
 				board.setHint(FILL_HINT[mode]);
 			},
+			// 人点「手动关闭」：人已经在对话里答了，但插件没认出来（措辞不是「Q-16 选 A」等）。
+			// 这条路径**不填输入框、不发消息**，只把这条决策的状态关掉 —— 只填不发的红线不变。
+			onDismiss: async (id) => {
+				const response = await fetch(endpointUrl(API_BASE, 'decide', sessionId), {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ id, dismiss: true, by: 'user' })
+				});
+				const result = await response.json();
+				if (!result.ok) throw new Error(result.error ?? 'dismiss failed');
+				board.setView(result.view);
+				// 复述句由宿主给（与 agent 收口同一份措辞），这里只负责显示。
+				return result.sentence ?? ('已手动关闭：' + id);
+			},
 			// 人点「我已发送」：把 filled 提升为 decided —— 只有这一步才允许条目离开清单。
 			onConfirm: async (id, value) => {
 				const response = await fetch(endpointUrl(API_BASE, 'decide', sessionId), {

@@ -142,6 +142,61 @@ test('非法选项值回 400；缺 value 回 400', async () => {
   assert.equal((await host.decide({ id: 'S-1', value: '' })).status, 400);
 });
 
+// ── 手动关闭：人在对话里答了、插件没认出来时的出口 ────────────────────────────
+
+test('dismiss=true 把条目直接落 decided，写盘带 manual 标记，且不碰别的字段', async () => {
+  const host = await mount();
+  const response = await host.decide({ id: 'S-1', dismiss: true, by: 'user' });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.view.pendingCount, 1, '手动关闭后离开待拍');
+  assert.equal(body.view.filledCount, 0, '它不是「已回填待发送」');
+  assert.equal(body.sentence, '已定：S-1（手动关闭）');
+  assert.equal(body.fill, undefined, '关闭不产生回填句（不能往输入框写字）');
+  const onDisk = JSON.parse(await readFile(host.file, 'utf8'));
+  const written = onDisk.items.find((item) => item.id === 'S-1');
+  assert.equal(written.status, 'decided');
+  assert.equal(written.decided.value, '', '关闭不是选票');
+  assert.equal(written.decided.manual, true);
+  assert.equal(written.decided.by, 'user');
+  assert.match(written.decided.at, /^\d{4}-\d{2}-\d{2}T/, '必须留时间，事后可追溯');
+  assert.equal(written.humanNote, '人手加的字段，写回时必须保留', '手动关闭同样不能丢掉人加的字段');
+  assert.equal(onDisk.items.find((item) => item.id === 'S-2').status, 'pending', '别的条目不受影响');
+});
+
+test('mode=dismiss 是同一件事的别名（两种调用写法都要认）', async () => {
+  const host = await mount();
+  const response = await host.decide({ id: 'S-2', mode: 'dismiss', by: 'user' });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.sentence, '已定：S-2（手动关闭）');
+  const onDisk = JSON.parse(await readFile(host.file, 'utf8'));
+  assert.equal(onDisk.items.find((item) => item.id === 'S-2').decided.manual, true);
+});
+
+test('dismiss 未知 id 回 400 且不写文件；已 decided 的再关一次也回 400', async () => {
+  const host = await mount();
+  const before = await readFile(host.file, 'utf8');
+  const unknown = await host.decide({ id: 'nope', dismiss: true });
+  assert.equal(unknown.status, 400);
+  assert.match((await unknown.json()).error, /unknown decision id/);
+  assert.equal(await readFile(host.file, 'utf8'), before, '被拒绝的请求不得改写文件');
+
+  assert.equal((await host.decide({ id: 'S-1', dismiss: true })).status, 200);
+  const again = await host.decide({ id: 'S-1', dismiss: true });
+  assert.equal(again.status, 400, '重复关闭要显式报错，不能覆盖原来的 by/at');
+  assert.match((await again.json()).error, /already decided/);
+});
+
+test('dismiss 带 value 回 400（关闭不能顺手记一个选项）', async () => {
+  const host = await mount();
+  const response = await host.decide({ id: 'S-1', dismiss: true, value: 'a' });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /dismiss does not take a value/);
+  const onDisk = JSON.parse(await readFile(host.file, 'utf8'));
+  assert.equal(onDisk.items.find((item) => item.id === 'S-1').status, 'pending', '文件没被改');
+});
+
 test('apply 注册 decisions_board 工具（agent 侧收口入口）', async () => {
   const host = await mount();
   assert.equal(host.tools.length, 1);

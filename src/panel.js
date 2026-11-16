@@ -82,11 +82,14 @@ function el(tag, className, children) {
 /**
  * 创建一块看板（一个触发器 + 一个抽屉），DOM 由调用方提供挂载点。
  * @param options.onDecide (id, value) => Promise<void> 人点了某个选项
+ * @param options.onConfirm (id, value) => Promise<string> 人点「我已发送」（filled → decided）
+ * @param options.onDismiss (id) => Promise<string> 人点「手动关闭」（不记选项，直接 decided）
  * @param options.onLink (link) => void 可选：点链接（预览模式 打开新标签；插件里没有就只显示文字）
  * @param options.fillHint 回填成功后的提示文案
  */
 export function createBoard(options = {}) {
-  const state = { view: null, open: false, expanded: new Set(), signature: null };
+  // confirmingDismiss：正在等第二次点击的条目 id（手动关闭是两步，防误触）。
+  const state = { view: null, open: false, expanded: new Set(), signature: null, confirmingDismiss: null };
   const doc = document;
   ensureStyle(doc);
 
@@ -142,11 +145,12 @@ export function createBoard(options = {}) {
     card.appendChild(head_);
     if (item.question !== '') card.appendChild(el('p', 'dshdb-question', item.question));
 
+    let confirmButton = null;
     if (item.awaitingSend === true) {
       // 已回填但没确认送达 —— 必须显式留在清单里，并给一个「我发过了」的出口。
       const decided = item.decided;
       card.appendChild(el('p', 'dshdb-advice', '✎ 已回填 ' + decided.valueLabel + (decided.label === '' ? '' : '（' + decided.label + '）') + ' —— 等你按回车'));
-      const confirmButton = el('button', 'dshdb-more', '我已发送，标记为已定');
+      confirmButton = el('button', 'dshdb-more', '我已发送，标记为已定');
       confirmButton.type = 'button';
       confirmButton.setAttribute('data-action', 'confirm');
       confirmButton.addEventListener('click', () => {
@@ -156,10 +160,13 @@ export function createBoard(options = {}) {
           showFillHint('标记失败：' + String(error?.message ?? error));
         });
       });
-      card.appendChild(el('div', 'dshdb-foot', [confirmButton]));
     } else if (isDecided) {
       const decided = item.decided;
       card.appendChild(el('p', 'dshdb-advice', '✓ 已定 ' + decided.valueLabel + (decided.label === '' ? '' : '（' + decided.label + '）')));
+      // 手动关闭不是选票：显式说明它只表示「这条不用再等」，免得后人把它读成「定了某个方案」。
+      if (decided.manual === true) {
+        card.appendChild(el('p', 'dshdb-note', '人工关闭：只表示这条不用再等，没记选项。'));
+      }
       if (decided.note !== '') card.appendChild(el('p', 'dshdb-note', '备注：' + decided.note));
       if (decided.by !== '' || decided.at !== '') {
         card.appendChild(el('p', 'dshdb-note', '由 ' + (decided.by === '' ? '（未记）' : decided.by) + ' 于 ' + (decided.at === '' ? '（未记时间）' : decided.at)));
@@ -212,7 +219,37 @@ export function createBoard(options = {}) {
       else state.expanded.add(item.id);
       renderBody();
     });
-    card.appendChild(el('div', 'dshdb-foot', [more]));
+
+    const foot = [];
+    if (confirmButton !== null) foot.push(confirmButton);
+    // 手动关闭：只给还没定的条目。
+    // 用途是「人已经在对话里答了，但插件没认出来」—— 只填不发的红线在这里依然成立：
+    // 关掉条目**不会**往输入框写任何字、也不会发送，它只改这条决策的状态。
+    if (!isDecided) {
+      const pending = state.confirmingDismiss === item.id;
+      const dismiss = el('button', 'dshdb-more', pending ? '确认关闭？（它不会发消息）' : '手动关闭');
+      dismiss.type = 'button';
+      dismiss.setAttribute('data-action', 'dismiss');
+      dismiss.setAttribute('data-confirming', pending ? '1' : '0');
+      dismiss.addEventListener('click', () => {
+        // 两步：第一次只把按钮变成「确认关闭？」，避免一次误点把还在等人拍板的条目关掉。
+        if (!pending) {
+          state.confirmingDismiss = item.id;
+          renderBody();
+          return;
+        }
+        state.confirmingDismiss = null;
+        Promise.resolve(options.onDismiss?.(item.id)).then((sentence) => {
+          showFillHint(typeof sentence === 'string' && sentence !== '' ? sentence : '已手动关闭：' + item.id);
+        }).catch((error) => {
+          showFillHint('关闭失败：' + String(error?.message ?? error));
+          renderBody();
+        });
+      });
+      foot.push(dismiss);
+    }
+    foot.push(more);
+    card.appendChild(el('div', 'dshdb-foot', foot));
 
     if (state.expanded.has(item.id)) {
       const detail = el('div', 'dshdb-detail');

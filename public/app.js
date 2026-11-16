@@ -22,6 +22,19 @@ const board = createBoard({
     verdict.textContent = body.sentence ?? ('已定：' + body.fill);
     return body.sentence ?? ('已定：' + body.fill);
   },
+  onDismiss: async (id) => {
+    const response = await fetch('/api/decide', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, dismiss: true, by: 'user' })
+    });
+    const body = await response.json();
+    if (!body.ok) throw new Error(body.error ?? 'dismiss failed');
+    board.setView(body.view);
+    const sentence = body.sentence ?? ('已手动关闭：' + id);
+    verdict.textContent = sentence;
+    return sentence;
+  },
   onDecide: async (id, value) => {
     const response = await fetch('/api/decide', {
       method: 'POST',

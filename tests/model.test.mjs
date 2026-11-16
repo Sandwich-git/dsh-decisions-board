@@ -16,7 +16,9 @@ import {
   itemView,
   matchSettlement,
   normalizeDoc,
-  withDecision
+  withDecision,
+  withDismiss,
+  dismissSentence
 } from '../src/model.js';
 
 function doc(items, extra = {}) {
@@ -311,4 +313,91 @@ test('buildView 空文档不炸', () => {
   assert.equal(view.pendingCount, 0);
   assert.deepEqual(view.pending, []);
   assert.deepEqual(view.decided, []);
+});
+
+// ── 手动关闭（人在对话里答了、插件没认出来时的出口） ──────────────────────────
+
+const DISMISSABLE = [
+  { id: 'Q-16', kind: 'choice', title: '要不要把 .dsh/ 写进 .gitignore', options: [] },
+  { id: 'Q-11', kind: 'choice', title: '这一版先发还是再等', options: [{ key: 'a', label: '先发', cost: '等下一版' }] }
+];
+
+test('withDismiss 落 decided + manual，但不记任何选项', () => {
+  const before = doc(DISMISSABLE);
+  const applied = withDismiss(before, { id: 'Q-16', by: 'user', at: '2026-11-17T00:00:00.000Z' });
+  const item = applied.doc.items.find((entry) => entry.id === 'Q-16');
+  assert.equal(item.status, 'decided');
+  assert.equal(item.decided.value, '', '手动关闭不是选票，value 必须为空');
+  assert.equal(item.decided.manual, true, 'manual 标记是「关闭 vs 选票」的唯一区分');
+  assert.equal(item.decided.by, 'user');
+  assert.equal(item.decided.at, '2026-11-17T00:00:00.000Z');
+  assert.equal(applied.sentence, '已定：Q-16（手动关闭）');
+  // 纯函数：原文档不能被改
+  assert.equal(before.items.find((entry) => entry.id === 'Q-16').status, 'pending');
+});
+
+test('withDismiss 拒绝带 value 的调用（关闭≠选某个方案）', () => {
+  const before = doc(DISMISSABLE);
+  assert.throws(() => withDismiss(before, { id: 'Q-11', value: 'a' }), /dismiss does not take a value/);
+});
+
+test('withDismiss 拒绝未知 id 与已 decided 的条目（不覆盖原来的 by/at）', () => {
+  const before = doc(DISMISSABLE);
+  assert.throws(() => withDismiss(before, { id: 'nope' }), /unknown decision id/);
+  const decidedDoc = withDecision(before, { id: 'Q-11', value: 'a', by: 'user-message', confirm: true }).doc;
+  assert.throws(() => withDismiss(decidedDoc, { id: 'Q-11' }), /already decided/);
+  assert.equal(decidedDoc.items.find((entry) => entry.id === 'Q-11').decided.by, 'user-message');
+});
+
+test('decided.manual 能穿过 normalizeDoc 往返（手写字段清单的守卫）', () => {
+  const applied = withDismiss(doc(DISMISSABLE), { id: 'Q-16', by: 'user' }).doc;
+  const raw = JSON.parse(JSON.stringify(applied));
+  const again = normalizeDoc(raw).doc;
+  assert.equal(again.items.find((entry) => entry.id === 'Q-16').decided.manual, true, '读一次盘不能把 manual 丢掉');
+  assert.equal(normalizeDoc(raw).problems.length, 0, '手动关闭不该被判成「decided 但缺 value」');
+});
+
+test('applyDecisionToRaw 按 dismiss 写盘：decided + manual，其他字段原样保留', () => {
+  const raw = { version: 1, session: 's', custom: 'keep-me', items: [{ id: 'Q-16', title: 't', handmade: 1 }] };
+  applyDecisionToRaw(raw, { id: 'Q-16', dismiss: true, by: 'user', at: '2026-11-17T00:00:00.000Z' });
+  assert.equal(raw.custom, 'keep-me');
+  assert.equal(raw.items[0].handmade, 1);
+  assert.equal(raw.items[0].status, 'decided');
+  assert.equal(raw.items[0].decided.value, '');
+  assert.equal(raw.items[0].decided.manual, true);
+});
+
+test('itemView 把手动关闭显示成「手动关闭」，老数据（value 为空且无 manual）也一样', () => {
+  const manual = itemView(normalizeDoc({ version: 1, items: [
+    { id: 'Q-1', title: 't', status: 'decided', decided: { value: '', manual: true, at: '', by: 'user' } }
+  ] }).doc.items[0]);
+  assert.equal(manual.decided.valueLabel, '手动关闭');
+  assert.equal(manual.decided.manual, true);
+  // 0.4.0 之前如果有人手写过空 value，界面会渲染成「✓ 已定 」后面空白 —— 现在给同样的标签。
+  const legacy = itemView(normalizeDoc({ version: 1, items: [
+    { id: 'Q-2', title: 't', status: 'decided', decided: { value: '' } }
+  ] }).doc.items[0]);
+  assert.equal(legacy.decided.valueLabel, '手动关闭');
+  // 正常选票不受影响
+  const normal = itemView(normalizeDoc({ version: 1, items: [
+    { id: 'Q-3', title: 't', status: 'decided', options: [{ key: 'a', label: '甲' }], decided: { value: 'a' } }
+  ] }).doc.items[0]);
+  assert.equal(normal.decided.valueLabel, 'A');
+  assert.equal(normal.decided.manual, false);
+});
+
+test('手动关闭后条目离开待拍、进入已定', () => {
+  const before = doc(DISMISSABLE);
+  assert.equal(buildView(before, 5).pendingCount, 2);
+  const after = withDismiss(before, { id: 'Q-16', by: 'user' }).doc;
+  const view = buildView(after, 5);
+  assert.deepEqual(view.pending.map((item) => item.id), ['Q-11']);
+  assert.deepEqual(view.decided.map((item) => item.id), ['Q-16']);
+  assert.equal(view.decided[0].decided.valueLabel, '手动关闭');
+});
+
+test('dismissSentence 与 settleSentence 措辞不混（关闭不写「选」）', () => {
+  const item = normalizeDoc({ version: 1, items: [{ id: 'Q-9', title: 't' }] }).doc.items[0];
+  assert.equal(dismissSentence(item), '已定：Q-9（手动关闭）');
+  assert.ok(!dismissSentence(item).includes('选'), '关闭不是选票，不能出现「选」字');
 });

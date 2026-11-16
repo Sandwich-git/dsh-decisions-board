@@ -13,7 +13,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildView, normalizeDoc, withDecision } from '../src/model.js';
+import { buildView, normalizeDoc, withDecision, withDismiss } from '../src/model.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -100,11 +100,12 @@ const server = createServer(async (request, response) => {
     }
     const read = await readDoc();
     try {
-      const applied = withDecision(read.doc, body);
+      // 预览页也要能验「手动关闭」这条路径，否则界面在预览里和插件里长得不一样。
+      const applied = body.dismiss === true ? withDismiss(read.doc, body) : withDecision(read.doc, body);
       const { writeFile, mkdir } = await import('node:fs/promises');
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, JSON.stringify(applied.doc, null, 2) + '\n', 'utf8');
-      json(response, 200, { ok: true, fill: applied.fill, view: buildView(applied.doc, 5) });
+      json(response, 200, { ok: true, fill: applied.fill, sentence: applied.sentence, view: buildView(applied.doc, 5) });
     } catch (error) {
       json(response, 400, { ok: false, error: String(error?.message ?? error) });
     }

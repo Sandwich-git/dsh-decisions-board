@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { buildView, normalizeDoc, withDecision } from '../src/model.js';
+import { buildView, normalizeDoc, withDecision, withDismiss } from '../src/model.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -121,6 +121,13 @@ async function mountClient(sessionId, draft = '') {
       async json() {
         if (target.includes('/state')) return { ok: true, view: buildView(current, 5) };
         const payload = JSON.parse(init.body);
+        // 手动关闭与「点选项 / 确认发送」是两条不同的写入路径，假宿主也要分开 ——
+        // 否则测试会「因为假宿主宽容」而变绿（§1.9：夹具通过 ≠ 运行时可用）。
+        if (payload.dismiss === true) {
+          const dismissed = withDismiss(current, { id: payload.id, by: payload.by });
+          current = dismissed.doc;
+          return { ok: true, view: buildView(current, 5), sentence: dismissed.sentence };
+        }
         const applied = withDecision(current, {
           id: payload.id,
           value: payload.value,
@@ -267,6 +274,83 @@ test('即使 insertText 被别的插件猴补丁，回填也不会走进它（vo
       if (node.attrs && node.attrs['data-action'] === 'confirm') confirmButton = node;
     });
     assert.ok(confirmButton !== null, '必须有「我已发送，标记为已定」的出口');
+  } finally { client.stop(); }
+});
+
+/** 找卡片里的「手动关闭」按钮。 */
+function findDismiss(document, itemId) {
+  let found = null;
+  walk(document.body, (node) => {
+    if (found !== null) return;
+    if (node.className !== 'dshdb-card' || node.dataset.itemId !== itemId) return;
+    walk(node, (inner) => {
+      if (found === null && inner.attrs && inner.attrs['data-action'] === 'dismiss') found = inner;
+    });
+  });
+  return found;
+}
+
+test('「手动关闭」是两步：第一次只改按钮文案，不发请求；第二次才 POST dismiss', async () => {
+  const client = await mountClient('S1');
+  try {
+    client.open();
+    const dismiss = findDismiss(client.document, 'Q-11');
+    assert.ok(dismiss !== null, '待拍卡片上必须有「手动关闭」');
+    assert.equal(dismiss.textContent, '手动关闭');
+    assert.equal(dismiss.attrs['data-confirming'], '0');
+
+    dismiss.dispatch('click');
+    await new Promise((resolveTick) => setImmediate(resolveTick));
+    assert.equal(
+      client.calls.filter((call) => call.url.includes('/decide')).length,
+      0,
+      '第一次点击不能写任何东西（防误触）'
+    );
+    const again = findDismiss(client.document, 'Q-11');
+    assert.equal(again.textContent, '确认关闭？（它不会发消息）', '第二次点击前必须明确问一句');
+    assert.equal(again.attrs['data-confirming'], '1');
+
+    again.dispatch('click');
+    await new Promise((resolveTick) => setImmediate(resolveTick));
+    await new Promise((resolveTick) => setImmediate(resolveTick));
+
+    const posts = client.calls.filter((call) => call.url.includes('/decide'));
+    assert.equal(posts.length, 1, '只发一次 decide');
+    assert.equal(posts[0].url, 'http://127.0.0.1:1/api/decisions-board/decide?sessionId=S1', 'sessionId 不能漏');
+    assert.deepEqual(JSON.parse(posts[0].body), { id: 'Q-11', dismiss: true, by: 'user' });
+    assert.deepEqual(client.draftWrites, [], '关闭绝不往输入框写字');
+    assert.deepEqual(client.insertWrites, [], '关闭也不许走 insertText');
+    assert.equal(findCard(client.document, 'Q-11').dataset.status, 'decided', '关闭后移到已定');
+    let toast = null;
+    walk(client.document.body, (node) => {
+      if (node.className === 'dshdb-toast') toast = node;
+    });
+    assert.ok(toast !== null, '关闭后要复述一句');
+    assert.match(toast.textContent, /已定：Q-11（手动关闭）/, '复述句由宿主给，且不含「选」');
+  } finally { client.stop(); }
+});
+
+test('已定的卡片没有再关一次的机会；未打开的抽屉里没有关闭按钮', async () => {
+  const client = await mountClient('S1');
+  try {
+    assert.equal(findDismiss(client.document, 'Q-11'), null, '抽屉没开时 body 里没有卡片');
+    client.open();
+    assert.ok(findDismiss(client.document, 'Q-16') !== null, '「要不要」型也要能手动关');
+    // 先把 Q-16 关掉，再看它的卡片
+    findDismiss(client.document, 'Q-16').dispatch('click');
+    await new Promise((resolveTick) => setImmediate(resolveTick));
+    findDismiss(client.document, 'Q-16').dispatch('click');
+    await new Promise((resolveTick) => setImmediate(resolveTick));
+    await new Promise((resolveTick) => setImmediate(resolveTick));
+    const card = findCard(client.document, 'Q-16');
+    assert.equal(card.dataset.status, 'decided');
+    assert.equal(findDismiss(client.document, 'Q-16'), null, '已定的条目不该再有「手动关闭」');
+    // 手动关闭的卡片要把「这不是选票」写出来，否则后人会读成「定了某个方案」
+    let manualNote = null;
+    walk(card, (node) => {
+      if (node.className === 'dshdb-note' && String(node.textContent).includes('人工关闭')) manualNote = node;
+    });
+    assert.ok(manualNote !== null, '已定卡片上要说明「人工关闭：没记选项」');
   } finally { client.stop(); }
 });
 

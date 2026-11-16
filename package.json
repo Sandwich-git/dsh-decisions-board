@@ -1,7 +1,7 @@
 {
   "name": "dsh-decisions-board",
-  "version": "0.4.0",
-  "description": "Pending-decision board in the DSH session header: agents record a decision as they ask, clicking an option fills the composer instead of sending it, and a reply in the conversation marks it decided.",
+  "version": "0.5.0",
+  "description": "Pending-decision board in the DSH session header: agents record a decision as they ask, clicking an option fills the composer instead of sending it, a reply in the conversation marks it decided, and any entry the plugin failed to recognise can be closed by hand.",
   "keywords": [
     "dsh",
     "dsh-plugin",

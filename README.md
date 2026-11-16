@@ -11,6 +11,12 @@
 | --- | --- | --- |
 | ![完整抽屉](docs/images/panel-full.jpg) | ![是/否](docs/images/panel-yes-no.jpg) | ![已回填](docs/images/panel-filled-kept.jpg) |
 
+每条未定的决策右侧还有「手动关闭」—— 插件没认出来的答案，人自己收口：
+
+| 未定：待拍卡片上的「手动关闭」 | 关闭后：落到「已定」，并注明没记选项 |
+| --- | --- |
+| ![手动关闭](docs/images/panel-manual-close.jpg) | ![关闭后](docs/images/panel-manual-closed.jpg) |
+
 用仓库里的示例数据跑，看到的就是这样：
 
 ![示例数据渲染](docs/images/sample-render.jpg)
@@ -25,8 +31,8 @@
 dsh plugin add dsh-decisions-board
 ```
 
-> 首发版本（0.4.0）目前处于 npm 的 staged 审核中。用
-> `npm view dsh-decisions-board versions --json` 自查：看不到 `0.4.0` 就先走方式二。
+> npm 上目前是 **0.4.0**（已公开，不含「手动关闭」）。本仓库当前是 **0.5.0**，**尚未发布** ——
+> 要用最新功能就走方式二。自查：`npm view dsh-decisions-board versions --json`。
 
 **方式二：本地 tgz**
 
@@ -84,13 +90,29 @@ install_local_workbench({ path: '<tgz 绝对路径>', replace: false })
 
 ### 怎么收口
 
-三条路，写入规则与复述句完全一致，`decided.by` 分别记为 `user-message` / `user` / `agent`：
+三条**带答案**的路，写入规则与复述句完全一致，`decided.by` 分别记为 `user-message` / `user` / `agent`：
 
 1. **自动**（默认开）：你在会话里发出答案（如 `Q-2 选 B`）⇒ 插件订阅 `session/event` 的 `user/message`，立刻标 `decided`；
 2. **人点确认**：点卡片上的「我已发送，标记为已定」；
 3. **agent 收口**：agent 调 `decisions_board action=settle`。
 
 点选项本身**只写 `filled`（已回填 · 待发送）**，条目继续留在清单里 —— 见下方第 3 条边界。
+
+### 没被认出来时：自己关掉（手动关闭）
+
+自动收口只认一种形态（`Q-2 选 B`）。如果你在对话里**用自己的话答了** —— 或者压根不是在会话里答的 ——
+插件认不出来，条目就会一直挂在「待拍」里，越积越多。
+
+这时点卡片上的 **「手动关闭」**（**两步**：第一次只是把按钮变成「确认关闭？」）：
+
+| 它做什么 | 它**不**做什么 |
+| --- | --- |
+| 直接把这条落成 `decided`，`decided.manual = true`，`by = user`，留 `at` 时间戳 | 不记选项（`value` 为空 —— 关闭**不是**一张选票） |
+| 复述一句「已定：Q-16（手动关闭）」 | **不往输入框写任何字，也不发送**（只填不发的红线不变） |
+| 已定的条目移到抽屉下半部分的「已定」，并在卡片上注明「人工关闭：没记选项」 | 不动别的条目、不重写人手加的字段 |
+
+> 为什么给这个按钮而不是让插件去猜：**猜错会把没定的当已定**，那是静默的、事后无法追责的错；
+> 手动关闭只会少一条提醒，而且 `by` / `at` / `manual` 三个标记都在文件里，事后能看出「这条是人自己关的」。
 
 ## 数据文件
 
@@ -111,7 +133,7 @@ install_local_workbench({ path: '<tgz 绝对路径>', replace: false })
 | `recommended` | 建议选项的 `key` |
 | `impact` / `links` | 影响标签 / 引用（只放链接，不放正文） |
 | `source` | `{ turn, anchor, quote }`；`quote` 存人的原话一小段（≤80 字） |
-| `decided` | `{ value, at, by, note }` |
+| `decided` | `{ value, at, by, note, manual }`；`manual: true` 表示人点了「手动关闭」（此时 `value` 为空，不是选票） |
 
 ## 配置
 
@@ -134,8 +156,11 @@ install_local_workbench({ path: '<tgz 绝对路径>', replace: false })
 5. **不碰会话共享的可写方法**：填充走 `setDraft`，**不用** `insertText` ——
    后者会被别的插件猴补丁（实测 `dsh-voice-plus` 会把它变成「转写 → LLM 校对 → 延迟写回」），导致文本被改写或丢失。
 6. **不改 `app.asar`**：只走 Plugin Manager 通道安装。
-7. **自动收口只认一种形态**：消息文本仅用于匹配 `id 选 值`；认不出就不动，条目留在 `filled` 里可见。
-8. **不做跨会话总览**：会话隔离是有意的 —— 同一工作区的不同会话各看各的板子。
+7. **自动收口只认一种形态**：消息文本仅用于匹配 `id 选 值`；认不出就不动，条目留在 `filled` 里可见 ——
+   出口是**人自己点「手动关闭」**，不是插件去猜。
+8. **手动关闭不产生选票**：它不记 `value`、不填输入框、不发消息，只把状态关掉；
+   带 `value` 调 `dismiss` 会被宿主回 400 —— 免得看板谎称「定了某个方案」。
+9. **不做跨会话总览**：会话隔离是有意的 —— 同一工作区的不同会话各看各的板子。
 
 ## 已知限制
 
@@ -148,7 +173,7 @@ install_local_workbench({ path: '<tgz 绝对路径>', replace: false })
 ## 开发
 
 ```powershell
-node --test tests/model.test.mjs tests/bundle.test.mjs tests/host.test.mjs tests/client.test.mjs  # 66 条
+node --test tests/*.test.mjs   # 80 条（模型 / 产物 / 宿主 / 客户端）
 node tools/build-client.mjs   # 改完 src/ 必跑，产物 lib/client.js 勿手改
 node tools/serve.mjs --file examples/decisions.sample.json   # 本地预览页，端口随机
 ```
@@ -170,7 +195,7 @@ node tools/serve.mjs --file examples/decisions.sample.json   # 本地预览页�
 | `examples/` | 三条示例数据，配合预览页使用 |
 | `docs/VERIFICATION.md` | 验证记录 |
 | `docs/R1-slot-research.md` | 会话标题行 slot 的取证结论 |
-| `tests/` | `node --test`：模型 / 产物 / 宿主 / 客户端，共 66 条 |
+| `tests/` | `node --test`：模型 / 产物 / 宿主 / 客户端，共 80 条 |
 
 ## 许可证
 

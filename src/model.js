@@ -120,7 +120,11 @@ export function normalizeDoc(raw) {
         value: entry.decided.value,
         at: text(entry.decided.at, ''),
         by: text(entry.decided.by, ''),
-        note: text(entry.decided.note, '')
+        note: text(entry.decided.note, ''),
+        // 「人自己点手动关闭」与「选了某个选项」的区别只在这里。
+        // 这是手写字段清单（§1.10 的固定产地）：漏了它，读一次盘 manual 就没了，
+        // 手动关闭的条目会退化成一个空标签 —— 所以 tests/model.test.mjs 有一条专门的往返断言。
+        manual: entry.decided.manual === true
       }
       : null;
     if (status === 'decided' && decided === null) {
@@ -333,6 +337,9 @@ export function itemView(item) {
   const decidedOption = item.decided === null
     ? null
     : options.find((option) => option.key === item.decided.value) ?? null;
+  // 手动关闭 = 记了 manual，或者 value 为空（老数据没有 manual 标记，也按手动关闭显示）。
+  // 不加这条兜底的话，卡片会渲染成「✓ 已定 」后面什么都没有。
+  const decidedManual = item.decided !== null && (item.decided.manual === true || item.decided.value === '');
   return {
     id: item.id,
     kind: item.kind,
@@ -356,9 +363,12 @@ export function itemView(item) {
     quote: item.source.quote,
     decided: item.decided === null ? null : {
       ...item.decided,
-      valueLabel: decidedOption === null
-        ? (DECIDED_YES_NO[item.decided.value] ?? item.decided.value.toUpperCase())
-        : decidedOption.keyLabel,
+      manual: decidedManual,
+      valueLabel: decidedManual
+        ? '手动关闭'
+        : (decidedOption === null
+          ? (DECIDED_YES_NO[item.decided.value] ?? item.decided.value.toUpperCase())
+          : decidedOption.keyLabel),
       label: decidedOption === null ? '' : decidedOption.label
     }
   };
@@ -449,6 +459,19 @@ export function settleSentence(item, value) {
 }
 
 /**
+ * 手动关闭的复述句：已定：Q-16（手动关闭）—— 刻意不写成「选 X」。
+ *
+ * 为什么需要这条路径：人已经在对话里把答案说了，但插件没认出来
+ * （措辞不是「Q-16 选 A」，或者人干脆没走回填、直接自己打的字）。
+ * 这时条目会一直挂在待拍里，越积越多 ⇒ 板子失去可信度，人就不再看了。
+ * 给人一个自己收口的按钮，比让插件去「猜」安全得多：猜错会把没定的当已定，
+ * 而手动关闭只会少一条提醒，并且留下 by/at/manual 三个标记可追溯。
+ */
+export function dismissSentence(item) {
+  return '已定：' + item.id + '（手动关闭）';
+}
+
+/**
  * 把一次决定「原地」写进**原始解析对象**（不是 normalize 后的副本）。
  *
  * 为什么必须两套：normalizeDoc 只保留认识的字段，若拿它整体覆盖写盘，
@@ -460,6 +483,19 @@ export function applyDecisionToRaw(raw, patch) {
   const items = Array.isArray(raw?.items) ? raw.items : [];
   const target = items.find((item) => item !== null && typeof item === 'object' && item.id === patch.id);
   if (target === undefined) throw new Error('unknown decision id: ' + String(patch.id));
+  // 手动关闭：直接 decided，不记选项。manual 标记必须写盘 ——
+  // 少了它，这条和「选了某个选项但 value 丢了」在文件里长得一样，事后无法归因。
+  if (patch.dismiss === true) {
+    target.status = 'decided';
+    target.decided = {
+      value: '',
+      at,
+      by: typeof patch.by === 'string' && patch.by !== '' ? patch.by : 'user',
+      note: typeof patch.note === 'string' ? patch.note : '',
+      manual: true
+    };
+    return raw;
+  }
   target.status = patch.confirm === true ? 'decided' : 'filled';
   target.decided = {
     value: patch.value,
@@ -504,6 +540,46 @@ export function withDecision(doc, patch) {
   const items = doc.items.slice();
   items[index] = next;
   return { doc: { ...doc, items }, item: next, fill: composeFill(next, value) };
+}
+
+/**
+ * 人点「手动关闭」：把条目落成 decided，但**不记任何选项**。
+ *
+ * 触发场景（用户实测提出）：人已经在对话里回答了，但插件没认出来 ——
+ * 可能是措辞不含「Q-16 选 A」，也可能是人在别的地方答的。
+ * 这时条目会永远挂在待拍里，而人除了手改 JSON 没有出口。
+ *
+ * 三条校验：
+ *   1. id 必须存在（否则回 400，不静默改坏文件）；
+ *   2. **不接受 value** —— 「关闭」不是一张选票，塞个值进来会让看板谎称定了某个方案；
+ *   3. 已经 decided 的不重复写（幂等失败要显式报错，而不是覆盖掉原来的 by/at）。
+ */
+export function withDismiss(doc, patch) {
+  const at = typeof patch.at === 'string' && patch.at !== '' ? patch.at : new Date().toISOString();
+  const index = doc.items.findIndex((item) => item.id === patch.id);
+  if (index < 0) throw new Error('unknown decision id: ' + String(patch.id));
+  const value = typeof patch.value === 'string' ? patch.value.trim() : '';
+  if (value !== '') {
+    throw new Error('dismiss does not take a value: ' + patch.id + '（关闭不等于选某个选项）');
+  }
+  const target = doc.items[index];
+  if (target.status === 'decided') {
+    throw new Error('decision ' + target.id + ' is already decided');
+  }
+  const next = {
+    ...target,
+    status: 'decided',
+    decided: {
+      value: '',
+      at,
+      by: typeof patch.by === 'string' && patch.by !== '' ? patch.by : 'user',
+      note: typeof patch.note === 'string' ? patch.note : '',
+      manual: true
+    }
+  };
+  const items = doc.items.slice();
+  items[index] = next;
+  return { doc: { ...doc, items }, item: next, sentence: dismissSentence(next) };
 }
 /**
  * 从一段「人发的消息」里认出某条决策的答案。
