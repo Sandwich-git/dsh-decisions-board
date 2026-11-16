@@ -81,7 +81,7 @@ npm view dsh-decisions-board versions --json   # 期望包含 "0.4.0"（不再�
 | npm 上有可安装的 0.4.0 | ✅ | `npm view … version` → `0.4.0`；`dist.tarball` HEAD → **200** |
 | `dsh-plugin` topic | ✅ | 仓库页内嵌数据 `"topics":[{"name":"dsh-plugin"}]` |
 | 仓库声明 `dsh.bundle` | ✅ | `dsh.bundle.patch: ./cordis.patch.yml` |
-| 仓库建满 24 小时 | ⏳ **未满** | `created_at = 2026-11-15T13:39:39Z`，此刻 age **15.54h**，还差 **8.46h** |
+| 仓库建满 24 小时 | ⏳ **未满**（已满足，见 §零之四） | `created_at = 2026-11-15T13:39:39Z`，此刻 age **15.54h**，还差 **8.46h** |
 
 **解锁时刻：`2026-11-16T13:39:39Z` = 2026-11-16 21:39:39 (+08:00)**
 
@@ -89,6 +89,37 @@ npm view dsh-decisions-board versions --json   # 期望包含 "0.4.0"（不再�
 > 用 PowerShell 的 `[datetime]$x.created_at` 取到的是**本地时间**，再和 `UtcNow` 相减会少算 8 小时
 > （实测踩过一次：算出 7.53h，真值是 15.54h）。要用
 > `[System.DateTimeOffset]::Parse($x.created_at, [CultureInfo]::InvariantCulture)` 再和 `UtcNow` 相减。
+
+## 零之四、PR 已提交（2026-11-16 22:39 +08:00）
+
+| 项 | 值 |
+| --- | --- |
+| PR | [#15975](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/15975) |
+| 标题 | Add dsh-decisions-board — pending-decision board in the session header |
+| 分支 | `Sandwich-git:add-dsh-decisions-board` → `main`（fork 自 `af6a618`） |
+| 改动 | **1 个文件** · `data/plugins/Sandwich-git__dsh-decisions-board.yml`（+17 / −0） |
+| 可合并 | `mergeable=true`（GitHub 判定无冲突） |
+| CI | `PR check` workflow 已触发（runs/43887917259） |
+
+### 四道门槛的实际读数（提 PR 前一刻）
+
+| 门槛 | 读数 | 结论 |
+| --- | --- | --- |
+| 建仓满 24 小时 | `created_at=2026-11-15T13:39:39Z` ⇒ age **24.97 h** | ✅ |
+| `dsh-plugin` topic | `topics=[dsh-plugin]` | ✅ |
+| npm 上有可安装版本 | `dist-tags.latest=0.4.0`，`versions=0.0.0-stage,0.4.0` | ✅ |
+| 上游无同名条目 | `GET contents/data/plugins/Sandwich-git__dsh-decisions-board.yml` → **404** | ✅ |
+
+### 提 PR 时踩的两个坑（下次直接用）
+
+1. **Windows PowerShell 5.1 的 `Invoke-RestMethod -Body <字符串>` 会按 ISO-8859-1 发送** ⇒
+   正文里只要有非 ASCII（比如 `⚖`、破折号）就返回 **400 `Problems parsing JSON`** ——
+   这不是 JSON 拼错了，是**字节编码错了**。解法：显式传字节
+   `-Body ([Text.Encoding]::UTF8.GetBytes($json)) -ContentType 'application/json; charset=utf-8'`。
+2. **判断「分支是否基于上游 main」不能拿「分支 head」和「上游 main」比** ——
+   分支 head 本来就是 `main + 本次提交`，**必然不相等**。
+   该比的是**父提交**（或 `merge-base`）。本次因此多做了一次 force 重置 + 重提文件，
+   结果无害（分支最终仍是 `af6a618 + 1 个提交`），但白跑一趟。
 
 ## 一、必须先做的三件事
 
