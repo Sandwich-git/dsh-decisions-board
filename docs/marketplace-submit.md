@@ -20,7 +20,7 @@
 | 测试 | 58/58 绿（`node --test`，零依赖，不需要 install） |
 | 图标 URL | `assets/icon-180.png` → 200（19201 B） |
 | topics | **空，待加 `dsh-plugin`** |
-| 建仓时间 | `2026-11-15T13:39:39Z` ⇒ **满 24 小时 = 2026-11-16 21:39:39 +08:00** |
+| 建仓时间 | `2026-11-15T13:39:39Z` ⇒ **满 24 小时 = 2026-11-16T13:39:39Z = 2026-11-16 21:39:39 (+08:00)** |
 
 ### 还差两件，都不是写代码能解决的
 
@@ -53,8 +53,8 @@
 | --- | --- |
 | 包名 / 版本 | `dsh-decisions-board@0.4.0` |
 | 内容 | 14 个文件 · 217.2 kB（`lib/`、`src/model.js`、`cordis.patch.yml`、README、LICENSE、CHANGELOG、examples、4 张截图） |
-| 状态 | **staged 审核中** —— registry 公开视图当前只有 `0.0.0-stage` 占位 |
-| 证据 | 重复发布返回 `E409 Cannot publish over previously staged version "0.4.0"` |
+| 状态 | ✅ **已通过审核并公开**（2026-11-16 13:11 +08:00 核对：`npm view` 返回 `["0.0.0-stage","0.4.0"]`，tarball HEAD **200**） |
+| 证据 | 审核期曾返回 `E409 Cannot publish over previously staged version "0.4.0"`；现已公开 |
 | 维护者字段 | `sandwichgit`（本账号），确认是我们的包 |
 
 ### 发布时踩到的两个坑
@@ -73,6 +73,22 @@
 ```bash
 npm view dsh-decisions-board versions --json   # 期望包含 "0.4.0"（不再是只有 0.0.0-stage）
 ```
+
+## 零之三、投稿门槛核对（2026-11-16 13:11 +08:00）
+
+| 门槛 | 状态 | 证据 |
+| --- | --- | --- |
+| npm 上有可安装的 0.4.0 | ✅ | `npm view … version` → `0.4.0`；`dist.tarball` HEAD → **200** |
+| `dsh-plugin` topic | ✅ | 仓库页内嵌数据 `"topics":[{"name":"dsh-plugin"}]` |
+| 仓库声明 `dsh.bundle` | ✅ | `dsh.bundle.patch: ./cordis.patch.yml` |
+| 仓库建满 24 小时 | ⏳ **未满** | `created_at = 2026-11-15T13:39:39Z`，此刻 age **15.54h**，还差 **8.46h** |
+
+**解锁时刻：`2026-11-16T13:39:39Z` = 2026-11-16 21:39:39 (+08:00)**
+
+> ⚠️ 自己算这个差时注意时区：`created_at` 是 UTC 裸值。
+> 用 PowerShell 的 `[datetime]$x.created_at` 取到的是**本地时间**，再和 `UtcNow` 相减会少算 8 小时
+> （实测踩过一次：算出 7.53h，真值是 15.54h）。要用
+> `[System.DateTimeOffset]::Parse($x.created_at, [CultureInfo]::InvariantCulture)` 再和 `UtcNow` 相减。
 
 ## 一、必须先做的三件事
 
